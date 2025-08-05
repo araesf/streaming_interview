@@ -1,5 +1,15 @@
 from typing import Any, Iterable, Generator
 
+# Named constants
+DEFAULT_TIMESTAMP_ON_RESET = 0
+
+
+def _is_valid_sample_data(station_name: str | None, temperature: float | None) -> bool:
+    """Encapsulate the boundary condition for valid sample data."""
+    has_station_name = bool(station_name)
+    has_temperature = temperature is not None
+    return has_station_name and has_temperature
+
 
 def _process_sample_event(
     line: dict[str, Any], stations: dict, most_recent_timestamp: int | None
@@ -9,12 +19,15 @@ def _process_sample_event(
     temperature = line.get("temperature")
     timestamp = line.get("timestamp")
 
-    # Update most recent timestamp
-    if timestamp is not None:
+    # Update most recent timestamp using explanatory variable
+    has_timestamp = timestamp is not None
+    if has_timestamp:
         most_recent_timestamp = timestamp
 
-    # Make sure we have a valid station and temperature reading
-    if station_name and temperature is not None:
+    # Use encapsulated boundary condition
+    if _is_valid_sample_data(station_name, temperature):
+        assert station_name is not None
+        assert temperature is not None
         _update_station_temperature(stations, station_name, temperature)
     return most_recent_timestamp
 
@@ -29,7 +42,6 @@ def _update_station_temperature(stations: dict, station_name: str, temperature: 
         if temperature < stations[station_name]["low"]:
             stations[station_name]["low"] = temperature
 
-
 def _process_control_event(
     line: dict[str, Any], stations: dict, most_recent_timestamp: int | None
 ) -> Generator[dict[str, Any], None, None]:
@@ -43,13 +55,14 @@ def _process_control_event(
     else:
         raise ValueError(f"Unknown control command: {command}. Please verify input.")
 
-
 def _handle_snapshot_command(
     stations: dict, most_recent_timestamp: int | None
 ) -> Generator[dict[str, Any], None, None]:
     """Handle snapshot command."""
-    # Only output snapshot if we have sample data
-    if stations and most_recent_timestamp is not None:
+    has_station_data = bool(stations)
+    has_timestamp = most_recent_timestamp is not None
+
+    if has_station_data and has_timestamp:
         snapshot_output = {
             "type": "snapshot",
             "asOf": most_recent_timestamp,
@@ -57,20 +70,19 @@ def _handle_snapshot_command(
         }
         yield snapshot_output
 
-
 def _handle_reset_command(
     stations: dict, most_recent_timestamp: int | None
 ) -> Generator[dict[str, Any], None, None]:
     """Handle reset command."""
-    # Output reset confirmation with current timestamp
+    timestamp_for_reset = (
+        most_recent_timestamp if most_recent_timestamp else DEFAULT_TIMESTAMP_ON_RESET
+    )
     reset_output = {
         "type": "reset",
-        "asOf": most_recent_timestamp if most_recent_timestamp is not None else 0
+        "asOf": timestamp_for_reset
     }
-    # Clear all station data
     stations.clear()
     yield reset_output
-
 
 def process_events(events: Iterable[dict[str, Any]]) -> Generator[dict[str, Any], None, None]:
     """Process a stream of weather events."""
@@ -86,13 +98,10 @@ def process_events(events: Iterable[dict[str, Any]]) -> Generator[dict[str, Any]
             most_recent_timestamp = _process_sample_event(line, stations, most_recent_timestamp)
         elif message_type == "control":
             yield from _process_control_event(line, stations, most_recent_timestamp)
-        elif message_type is not None:
-            # Unknown message type
+        elif message_type:
             raise ValueError(f"Unknown message type: {message_type}. Please verify input.")
         else:
-            # Message without type field - yield as-is
             yield line
             continue
 
-        # For sample and control messages, yield the original line
         yield line

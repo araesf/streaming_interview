@@ -96,8 +96,7 @@ def test_process_events_unknown_control_command():
     with pytest.raises(ValueError) as exc_info:
         list(weather.process_events(events))
 
-    assert "Unknown control command: unknown" in str(exc_info.value)
-    assert "Please verify input." in str(exc_info.value)
+    assert str(exc_info.value) == "Unknown control command: unknown"
 
 def test_process_events_unknown_message_type():
     """Test unknown message type raises exception.
@@ -109,8 +108,7 @@ def test_process_events_unknown_message_type():
     with pytest.raises(ValueError) as exc_info:
         list(weather.process_events(events))
 
-    assert "Unknown message type: unknown" in str(exc_info.value)
-    assert "Please verify input." in str(exc_info.value)
+    assert str(exc_info.value) == "Unknown message type: unknown"
 
 def test_process_events_message_without_type():
     """Test message without type field is passed through."""

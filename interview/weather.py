@@ -53,7 +53,7 @@ def _process_control_event(
     elif command == "reset":
         yield from _handle_reset_command(stations, most_recent_timestamp)
     else:
-        raise ValueError(f"Unknown control command: {command}. Please verify input.")
+        raise ValueError(f"Unknown control command: {command}")
 
 def _handle_snapshot_command(
     stations: dict, most_recent_timestamp: int | None
@@ -99,7 +99,7 @@ def process_events(events: Iterable[dict[str, Any]]) -> Generator[dict[str, Any]
         elif message_type == "control":
             yield from _process_control_event(line, stations, most_recent_timestamp)
         elif message_type:
-            raise ValueError(f"Unknown message type: {message_type}. Please verify input.")
+            raise ValueError(f"Unknown message type: {message_type}")
         else:
             yield line
             continue
